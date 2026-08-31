@@ -1,0 +1,66 @@
+﻿@model IEnumerable<HR_Portal.Models.Domain.LeaveType>
+@{
+    ViewData["Title"] = "Leave Types";
+}
+
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-tags me-2"></i>Leave Types
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead style="background:#f8fafc;font-size:.8125rem;color:#64748b;">
+                <tr>
+                    <th class="px-4 py-3">Name</th>
+                    <th class="py-3">Days / Year</th>
+                    <th class="py-3">Carry Forward</th>
+                    <th class="py-3">Max Carry</th>
+                    <th class="py-3">Notice (Days)</th>
+                    <th class="py-3">Docs Required</th>
+                    <th class="py-3">Active</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in Model)
+                {
+                    <tr>
+                        <td class="px-4 py-3" style="font-weight:600;">@t.Name</td>
+                        <td class="py-3">@t.DefaultDaysPerYear</td>
+                        <td class="py-3">
+                            @if (t.IsCarryForwardAllowed)
+                            {
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                            }
+                            else
+                            {
+                                <i class="bi bi-x-circle-fill text-danger"></i>
+                            }
+                        </td>
+                        <td class="py-3">@(t.IsCarryForwardAllowed ? t.MaxCarryForwardDays : "-")</td>
+                        <td class="py-3">@(t.MinimumNoticeDays > 0 ? t.MinimumNoticeDays : "-")</td>
+                        <td class="py-3">
+                            @if (t.RequiresDocumentation)
+                            {
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                            }
+                            else
+                            {
+                                <i class="bi bi-dash"></i>
+                            }
+                        </td>
+                        <td class="py-3">
+                            @if (t.IsActive)
+                            {
+                                <span class="status-badge status-approved">Active</span>
+                            }
+                            else
+                            {
+                                <span class="status-badge status-cancelled">Inactive</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

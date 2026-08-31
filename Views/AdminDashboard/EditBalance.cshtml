@@ -1,0 +1,86 @@
+﻿@model HR_Portal.ViewModel.AdminViewModels.LeaveBalanceEditViewModel
+@{
+    ViewData["Title"] = "Edit Balance";
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-wallet2 me-2"></i>Adjust Balance — @Model.EmployeeFullName
+            </div>
+            <div class="card-body">
+
+                @if (!ViewData.ModelState.IsValid)
+                {
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                            {
+                                <li>@error.ErrorMessage</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                <form asp-action="EditBalance" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="BalanceId" />
+                    <input type="hidden" asp-for="EmployeeId" />
+                    <input type="hidden" asp-for="EmployeeFullName" />
+
+                    <div class="mb-3">
+                        <label asp-for="LeaveTypeId" class="form-label fw-semibold">Leave Type</label>
+                        <select asp-for="LeaveTypeId"
+                                asp-items="@(new SelectList(Model.AvailableLeaveTypes, "Id", "Name"))"
+                                class="form-select">
+                            <option value="">— Select Leave Type —</option>
+                        </select>
+                        <span asp-validation-for="LeaveTypeId" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Year" class="form-label fw-semibold">Year</label>
+                        <select asp-for="Year" class="form-select">
+                            @for (int y = DateTime.Today.Year + 1; y >= DateTime.Today.Year - 2; y--)
+                            {
+                                <option value="@y" selected="@(Model.Year == y)">@y</option>
+                            }
+                        </select>
+                        <span asp-validation-for="Year" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="TotalDays" class="form-label fw-semibold">Total Days Entitlement</label>
+                        <input asp-for="TotalDays" type="number" step="0.5" min="0" max="365"
+                               class="form-control" />
+                        <div class="form-text">The total number of days this employee is entitled to.</div>
+                        <span asp-validation-for="TotalDays" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="CarriedForwardDays" class="form-label fw-semibold">Carried Forward Days</label>
+                        <input asp-for="CarriedForwardDays" type="number" step="0.5" min="0" max="365"
+                               class="form-control" />
+                        <div class="form-text">Days carried over from the previous year.</div>
+                        <span asp-validation-for="CarriedForwardDays" class="text-danger small"></span>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                        <a asp-action="Balances" asp-route-employeeId="@Model.EmployeeId"
+                           class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-floppy me-1"></i> Save Balance
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

@@ -1,0 +1,148 @@
+﻿@model IEnumerable<HR_Portal.ViewModel.LeaveViewModels.LeaveBalanceSummary>
+@{
+    ViewData["Title"] = "Leave Balances";
+    var users = (IEnumerable<HR_Portal.Models.Users>)ViewBag.Users;
+    var selectedId = (string?)ViewBag.SelectedEmployee;
+}
+
+<div class="row g-4">
+
+    @* ── Employee picker + provision ─────────────────────────────────── *@
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-person-lines-fill me-2"></i>Select Employee</div>
+            <div class="card-body">
+                <form method="get">
+                    <select name="employeeId" class="form-select mb-3" onchange="this.form.submit()">
+                        <option value="">— Select an employee —</option>
+                        @foreach (var u in users)
+                        {
+                            <option value="@u.Id" selected="@(selectedId == u.Id)">
+                                @u.Name @u.Surname
+                            </option>
+                        }
+                    </select>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><i class="bi bi-calendar-plus me-2"></i>Provision Year</div>
+            <div class="card-body">
+                <p style="font-size:.875rem;color:#64748b;">
+                    Creates balance rows for all active employees for the selected year
+                    using each leave type's default days.
+                </p>
+                <form asp-action="ProvisionBalances" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="d-flex gap-2">
+                        <select name="year" class="form-select">
+                            @for (int y = DateTime.Today.Year; y <= DateTime.Today.Year + 1; y++)
+                            {
+                                <option value="@y">@y</option>
+                            }
+                        </select>
+                        <button type="submit" class="btn btn-primary"
+                                onclick="return confirm('Provision balances for all employees?')">
+                            Go
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @* ── Balance table ────────────────────────────────────────────────── *@
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-wallet2 me-2"></i>Balances</span>
+                @if (!string.IsNullOrEmpty(selectedId))
+                {
+                    <a asp-action="EditBalance"
+                       asp-route-employeeId="@selectedId"
+                       asp-route-leaveTypeId="0"
+                       asp-route-year="@DateTime.Today.Year"
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-pencil me-1"></i> Adjust Balance
+                    </a>
+                }
+            </div>
+            <div class="card-body p-0">
+                @if (Model.Any())
+                {
+                    <table class="table table-hover mb-0">
+                        <thead style="background:#f8fafc;font-size:.8125rem;color:#64748b;">
+                            <tr>
+                                <th class="px-4 py-3">Leave Type</th>
+                                <th class="py-3">Year</th>
+                                <th class="py-3">Total</th>
+                                <th class="py-3">Used</th>
+                                <th class="py-3">Pending</th>
+                                <th class="py-3">Remaining</th>
+                                <th class="py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var b in Model)
+                            {
+                                var pct = b.TotalDays > 0
+                                    ? (double)b.RemainingDays / (double)b.TotalDays * 100 : 0;
+                                var barClass = pct > 50 ? "bar-good" : pct > 20 ? "bar-warn" : "bar-low";
+                                <tr>
+                                    <td class="px-4 py-3" style="font-weight:600;">@b.LeaveTypeName</td>
+                                    <td class="py-3">@b.Year</td>
+                                    <td class="py-3">@b.TotalDays</td>
+                                    <td class="py-3">@b.UsedDays</td>
+                                    <td class="py-3">
+                                        @if (b.PendingDays > 0)
+                                        {
+                                            <span style="color:#D97706;font-weight:600;">@b.PendingDays</span>
+                                        }
+                                        else
+                                        {
+
+                                            <span>0</span>
+                                        }
+                                    </td>
+                                    <td class="py-3">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span style="font-weight:700;color:#2563EB;min-width:2rem;">@b.RemainingDays</span>
+                                            <div class="balance-bar-track flex-grow-1" style="min-width:60px;">
+                                                <div class="balance-bar @barClass" style="width:@pct.ToString("F0")%"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3">
+                                        <a asp-controller="AdminDashboard"
+                                           asp-action="EditBalance"
+                                           asp-route-employeeId="@selectedId"
+                                           asp-route-leaveTypeId="@b.LeaveTypeId"
+                                           asp-route-year="@b.Year"
+                                           class="btn btn-sm btn-outline-secondary">Edit</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else if (!string.IsNullOrEmpty(selectedId))
+                {
+                    <div class="text-center py-5" style="color:#94a3b8;">
+                        <i class="bi bi-wallet2" style="font-size:2rem;"></i>
+                        <p class="mt-2 mb-1">No balances found for this employee.</p>
+                        <p style="font-size:.875rem;">Use "Provision Year" to create them.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5" style="color:#94a3b8;">
+                        <i class="bi bi-arrow-left-circle" style="font-size:2rem;"></i>
+                        <p class="mt-2 mb-0">Select an employee to view their balances.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+

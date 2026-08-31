@@ -1,0 +1,97 @@
+﻿@model HR_Portal.ViewModel.LeaveViewModels.LeaveApprovalViewModel
+@{
+    ViewData["Title"] = "Review Request";
+    var isAdmin = User.IsInRole("Admin");
+    var approveAction = isAdmin ? "Approve" : "Approve";
+    var rejectAction = isAdmin ? "Reject" : "Reject";
+    var cancelRoute = isAdmin
+        ? Url.Action("AllRequests", "Admin")
+        : Url.Action("TeamRequests", "Leave");
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-clipboard-check me-2"></i>Leave Request — @Model.EmployeeFullName
+            </div>
+            <div class="card-body">
+
+                @* Request details *@
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6">
+                        <div style="font-size:.8rem;color:#64748b;margin-bottom:.2rem;">Employee</div>
+                        <div style="font-weight:600;">@Model.EmployeeFullName</div>
+                        <div style="font-size:.875rem;color:#94a3b8;">@Model.Department</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div style="font-size:.8rem;color:#64748b;margin-bottom:.2rem;">Leave Type</div>
+                        <div style="font-weight:600;">@Model.LeaveTypeName</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div style="font-size:.8rem;color:#64748b;margin-bottom:.2rem;">Dates</div>
+                        <div style="font-weight:600;">
+                            @Model.StartDate.ToString("dd MMM yyyy") – @Model.EndDate.ToString("dd MMM yyyy")
+                        </div>
+                    </div>
+                    <div class="col-sm-3">
+                        <div style="font-size:.8rem;color:#64748b;margin-bottom:.2rem;">Working Days</div>
+                        <div style="font-weight:700;font-size:1.25rem;color:#2563EB;">@Model.TotalDays</div>
+                    </div>
+                    <div class="col-sm-3">
+                        <div style="font-size:.8rem;color:#64748b;margin-bottom:.2rem;">Balance Left</div>
+                        @{
+                            var balColor = Model.EmployeeRemainingBalance >= Model.TotalDays ? "#16A34A" : "#DC2626";
+                        }
+                        <div style="font-weight:700;font-size:1.25rem;color:@balColor;">
+                            @Model.EmployeeRemainingBalance
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div style="font-size:.8rem;color:#64748b;margin-bottom:.2rem;">Reason</div>
+                        <div style="background:#f8fafc;border-radius:8px;padding:.75rem 1rem;font-size:.9rem;">
+                            @Model.Reason
+                        </div>
+                    </div>
+                </div>
+
+                <hr />
+
+                @* Approve form *@
+                <form asp-action="Approve" method="post" class="mb-3">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="LeaveRequestId" value="@Model.LeaveRequestId" />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Comments <span class="text-muted fw-normal">(optional)</span></label>
+                        <textarea name="Comments" class="form-control" rows="3"
+                                  placeholder="Add a comment for the employee..."></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-circle me-1"></i> Approve
+                        </button>
+                    </div>
+                </form>
+
+                @* Reject form *@
+                <form asp-action="Reject" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="LeaveRequestId" value="@Model.LeaveRequestId" />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-danger">Rejection Reason <span class="text-muted fw-normal">(optional)</span></label>
+                        <textarea name="Comments" class="form-control" rows="2"
+                                  placeholder="Provide a reason for rejection..."></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger"
+                                onclick="return confirm('Are you sure you want to reject this request?')">
+                            <i class="bi bi-x-circle me-1"></i> Reject
+                        </button>
+                        <a href="@cancelRoute" class="btn btn-outline-secondary">Back</a>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>

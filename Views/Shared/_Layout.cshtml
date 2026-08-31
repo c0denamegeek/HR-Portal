@@ -1,0 +1,255 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - HR Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+    <style>
+            :root {
+                --primary: #2563EB;
+                --primary-dark: #1D4ED8;
+                --sidebar-bg: #1e293b;
+                --sidebar-text: #94a3b8;
+                --sidebar-active: #2563EB;
+            }
+
+            body { background: #f1f5f9; font-family: 'Segoe UI', sans-serif; }
+
+            /* Sidebar */
+            .sidebar {
+                width: 240px;
+                min-height: 100vh;
+                background: var(--sidebar-bg);
+                position: fixed;
+                top: 0; left: 0;
+                display: flex;
+                flex-direction: column;
+                z-index: 100;
+            }
+            .sidebar-brand {
+                padding: 1.25rem 1.5rem;
+                color: #fff;
+                font-size: 1.1rem;
+                font-weight: 700;
+                border-bottom: 1px solid #334155;
+                text-decoration: none;
+                display: flex;
+                align-items: center;
+                gap: .5rem;
+            }
+            .sidebar-brand:hover { color: #fff; }
+            .sidebar-nav { flex: 1; padding: 1rem 0; }
+            .nav-label {
+                font-size: .6875rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: .08em;
+                color: #475569;
+                padding: .75rem 1.5rem .25rem;
+            }
+            .sidebar .nav-link {
+                color: var(--sidebar-text);
+                padding: .55rem 1.5rem;
+                display: flex;
+                align-items: center;
+                gap: .65rem;
+                font-size: .9rem;
+                border-radius: 0;
+                transition: background .15s, color .15s;
+            }
+            .sidebar .nav-link:hover { background: #334155; color: #fff; }
+            .sidebar .nav-link.active { background: var(--sidebar-active); color: #fff; }
+            .sidebar .nav-link .badge { margin-left: auto; }
+
+            /* Main content */
+            .main-content { margin-left: 240px; min-height: 100vh; }
+            .topbar {
+                background: #fff;
+                border-bottom: 1px solid #e2e8f0;
+                padding: .75rem 2rem;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+            .topbar-title { font-weight: 600; color: #1e293b; font-size: 1rem; }
+            .page-body { padding: 2rem; }
+
+            /* Cards */
+            .card { border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+            .card-header { background: #fff; border-bottom: 1px solid #e2e8f0; font-weight: 600; padding: 1rem 1.25rem; }
+
+            /* Stat cards */
+            .stat-card { border-radius: 12px; padding: 1.25rem 1.5rem; color: #fff; }
+            .stat-card .stat-label { font-size: .8125rem; opacity: .85; margin-bottom: .25rem; }
+            .stat-card .stat-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+
+            /* Badges */
+            .status-badge {
+                display: inline-block;
+                padding: .2rem .65rem;
+                border-radius: 99px;
+                font-size: .75rem;
+                font-weight: 600;
+            }
+            .status-pending  { background: #FEF3C7; color: #92400E; }
+            .status-approved { background: #D1FAE5; color: #065F46; }
+            .status-rejected { background: #FEE2E2; color: #991B1B; }
+            .status-cancelled{ background: #F1F5F9; color: #475569; }
+
+            /* Balance bar */
+            .balance-bar-track { height: 6px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
+            .balance-bar { height: 100%; border-radius: 99px; }
+            .bar-good { background: #16A34A; }
+            .bar-warn { background: #D97706; }
+            .bar-low  { background: #DC2626; }
+
+            /* Alerts */
+            .alert { border-radius: 10px; }
+
+            @@media (max-width: 768px) {
+                .sidebar { width: 100%; min-height: auto; position: relative; }
+                .main-content { margin-left: 0; }
+            }
+    </style>
+</head>
+<body>
+
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <div class="sidebar">
+            <a class="sidebar-brand" asp-controller="Home" asp-action="Index">
+                <i class="bi bi-calendar2-check"></i> HR Portal
+            </a>
+
+            <nav class="sidebar-nav">
+                @if (User.IsInRole("Admin"))
+                {
+                    <div class="nav-label">Overview</div>
+                    <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Dashboard" ? "active" : "")"
+                       asp-controller="AdminDashboard" asp-action="Dashboard">
+                        <i class="bi bi-grid"></i> Dashboard
+                    </a>
+
+                    <div class="nav-label">Leave</div>
+                    <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "AllRequests" ? "active" : "")"
+                       asp-controller="AdminDashboard" asp-action="AllRequests">
+                        <i class="bi bi-list-check"></i> All Requests
+                    </a>
+                    <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "LeaveTypes" ? "active" : "")"
+                       asp-controller="AdminDashboard" asp-action="LeaveTypes">
+                        <i class="bi bi-tags"></i> Leave Types
+                    </a>
+                    <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Balances" ? "active" : "")"
+                       asp-controller="AdminDashboard" asp-action="Balances">
+                        <i class="bi bi-wallet2"></i> Balances
+                    </a>
+
+                    <div class="nav-label">Users</div>
+                    <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Users" ? "active" : "")"
+                       asp-controller="Users" asp-action="Users">
+                        <i class="bi bi-people"></i> Manage Users
+                    </a>
+                }
+                else if (User.IsInRole("User"))
+                {
+                    <div class="nav-label">My Leave</div>
+                    <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Dashboard" ? "active" : "")"
+                       asp-controller="Leave" asp-action="Dashboard">
+                        <i class="bi bi-grid"></i> Dashboard
+                    </a>
+                    <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Apply" ? "active" : "")"
+                       asp-controller="Leave" asp-action="Apply">
+                        <i class="bi bi-plus-circle"></i> Apply for Leave
+                    </a>
+                    <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "MyRequests" ? "active" : "")"
+                       asp-controller="Leave" asp-action="MyRequests">
+                        <i class="bi bi-clock-history"></i> My Requests
+                    </a>
+
+                    @if (ViewBag.IsManager == true)
+                    {
+                        <div class="nav-label">Team</div>
+                        <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "TeamRequests" ? "active" : "")"
+                           asp-controller="Leave" asp-action="TeamRequests">
+                            <i class="bi bi-people"></i> Team Requests
+                            @if (ViewBag.PendingTeamCount is int c && c > 0)
+                            {
+                                <span class="badge bg-danger">@c</span>
+                            }
+                        </a>
+                    }
+                }
+            </nav>
+
+            <div style="padding:1rem 1.5rem; border-top:1px solid #334155;">
+                <div style="color:#94a3b8; font-size:.8rem; margin-bottom:.5rem;">@User.Identity!.Name</div>
+                <form asp-controller="Account" asp-action="Logout" method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" style="background:none;border:none;color:#64748b;font-size:.85rem;padding:0;cursor:pointer;">
+                        <i class="bi bi-box-arrow-left"></i> Sign out
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="topbar">
+                <span class="topbar-title">@ViewData["Title"]</span>
+                <span style="font-size:.85rem;color:#64748b;">
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <span class="badge bg-primary">Admin</span>
+                    }
+                    else if (ViewBag.IsManager == true)
+                    {
+
+                        <span class="badge bg-success">Manager</span>
+                    }
+                    else
+                    {
+
+                        <span class="badge bg-secondary">User</span>
+                    }
+                </span>
+            </div>
+
+            <div class="page-body">
+                @if (TempData["Success"] is string success)
+                {
+                    <div class="alert alert-success alert-dismissible fade show">
+                        <i class="bi bi-check-circle me-2"></i>@success
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+                @if (TempData["Error"] is string error)
+                {
+                    <div class="alert alert-danger alert-dismissible fade show">
+                        <i class="bi bi-exclamation-circle me-2"></i>@error
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+                @if (TempData["Warning"] is string warning)
+                {
+                    <div class="alert alert-warning alert-dismissible fade show">
+                        <i class="bi bi-exclamation-triangle me-2"></i>@warning
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+
+                @RenderBody()
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="main-content" style="margin-left:0">
+            @RenderBody()
+        </div>
+    }
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

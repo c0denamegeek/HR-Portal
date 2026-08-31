@@ -1,0 +1,17 @@
+﻿@model HR_Portal.ViewModel.AdminViewModels.UserManagementViewModel
+@{
+    ViewData["Title"] = "Create User";
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-person-plus me-2"></i>Create User
+            </div>
+            <div class="card-body">
+                <partial name="~/Views/Users/_UserForm.cshtml" model="Model" />
+            </div>
+        </div>
+    </div>
+</div>

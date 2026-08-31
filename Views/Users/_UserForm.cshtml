@@ -1,0 +1,123 @@
+﻿@model HR_Portal.ViewModel.AdminViewModels.UserManagementViewModel
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger">
+        <ul class="mb-0">
+            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <li>@error.ErrorMessage</li>
+            }
+        </ul>
+    </div>
+}
+
+<form asp-action="@(Model.IsEdit ? "EditUser" : "Create")" method="post">
+    @Html.AntiForgeryToken()
+    @if (Model.IsEdit) { <input type="hidden" asp-for="Id" /> }
+
+    <div class="row g-3 mb-3">
+        <div class="col-sm-6">
+            <label asp-for="Name" class="form-label fw-semibold">First Name</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger small"></span>
+        </div>
+        <div class="col-sm-6">
+            <label asp-for="Surname" class="form-label fw-semibold">Last Name</label>
+            <input asp-for="Surname" class="form-control" />
+            <span asp-validation-for="Surname" class="text-danger small"></span>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-sm-6">
+            <label asp-for="Email" class="form-label fw-semibold">Email</label>
+            <input asp-for="Email" class="form-control" readonly="@Model.IsEdit") />
+            <span asp-validation-for="Email" class="text-danger small"></span>
+        </div>
+        <div class="col-sm-6">
+            <label asp-for="ClockNumber" class="form-label fw-semibold">Clock Number</label>
+            <input asp-for="ClockNumber" class="form-control" />
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-sm-6">
+            <label asp-for="Department" class="form-label fw-semibold">Department</label>
+            <select asp-for="Department" class="form-select"
+                    asp-items="Html.GetEnumSelectList<HR_Portal.Models.Enums.Department>()">
+                <option value="">— Select Department —</option>
+            </select>
+            <span asp-validation-for="Department" class="text-danger small"></span>
+        </div>
+        <div class="col-sm-6">
+            <label asp-for="JobTitle" class="form-label fw-semibold">Job Title</label>
+            <input asp-for="JobTitle" class="form-control" />
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-sm-6">
+            <label asp-for="Role" class="form-label fw-semibold">Role</label>
+            <select asp-for="Role" class="form-select" id="roleSelect">
+                <option value="User">User</option>
+                <option value="Admin">Admin</option>
+            </select>
+        </div>
+        <div class="col-sm-6" id="managerCol">
+            <label asp-for="ManagerId" class="form-label fw-semibold">Line Manager</label>
+            <select asp-for="ManagerId" class="form-select">
+                <option value="">— None —</option>
+                @foreach (var m in Model.AvailableManagers)
+                {
+                    <option value="@m.Id" selected="@(Model.ManagerId == m.Id)">@m.FullName</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <div class="form-check">
+            <input asp-for="IsManager" class="form-check-input" type="checkbox" />
+            <label asp-for="IsManager" class="form-check-label fw-semibold">
+                This user is a manager <span class="text-muted fw-normal">(can approve team leave requests)</span>
+            </label>
+        </div>
+    </div>
+
+    @if (!Model.IsEdit)
+    {
+        <div class="mb-4">
+            <label asp-for="TemporaryPassword" class="form-label fw-semibold">Temporary Password</label>
+            <input asp-for="TemporaryPassword" type="password" class="form-control" />
+            <div class="form-text">The employee will use this password to log in for the first time.</div>
+            <span asp-validation-for="TemporaryPassword" class="text-danger small"></span>
+        </div>
+    }
+
+    <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+        <a asp-action="Users" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-@(Model.IsEdit ? "floppy" : "person-plus") me-1"></i>
+            @(Model.IsEdit ? "Save Changes" : "Create User")
+        </button>
+    </div>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+    (() => {
+        const roleSelect  = document.getElementById('roleSelect');
+        const managerCol  = document.getElementById('managerCol');
+
+        function toggleManager() {
+            managerCol.style.display = roleSelect.value === 'Admin' ? 'none' : '';
+        }
+
+        roleSelect.addEventListener('change', toggleManager);
+        toggleManager();
+    })();
+    </script>
+}
+

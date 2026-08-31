@@ -1,0 +1,187 @@
+﻿@model HR_Portal.ViewModel.LeaveViewModels.LeaveRequestViewModel
+@{
+    ViewData["Title"] = "Apply for Leave";
+}
+
+<div class="row g-4">
+
+    @* ── Balances sidebar ─────────────────────────────────────────────── *@
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-wallet2 me-2"></i>Your @DateTime.Today.Year Balances</div>
+            <div class="card-body">
+                @if (Model.CurrentBalances.Any())
+                {
+                    @foreach (var b in Model.CurrentBalances)
+                    {
+                        var pct = b.TotalDays > 0 ? (double)b.RemainingDays / (double)b.TotalDays * 100 : 0;
+                        var barClass = pct > 50 ? "bar-good" : pct > 20 ? "bar-warn" : "bar-low";
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span style="font-size:.875rem;font-weight:600;">@b.LeaveTypeName</span>
+                                <span style="font-weight:700;color:#2563EB;">@b.RemainingDays left</span>
+                            </div>
+                            <div class="balance-bar-track mb-1">
+                                <div class="balance-bar @barClass" style="width:@pct.ToString("F0")%"></div>
+                            </div>
+                            <div class="d-flex justify-content-between" style="font-size:.75rem;color:#94a3b8;">
+                                <span>@b.UsedDays used</span>
+                                @if (b.PendingDays > 0)
+                                {
+                                    <span style="color:#D97706;">@b.PendingDays pending</span>
+                                }
+                                <span>@b.TotalDays total</span>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p style="color:#94a3b8;font-size:.875rem;">No balances found. Contact HR.</p>
+                }
+
+                @if (!string.IsNullOrEmpty(Model.ApproverLabel))
+                {
+                    <hr />
+                    <div style="font-size:.8125rem;color:#64748b;">
+                        <i class="bi bi-person-check me-1"></i>
+                        Request goes to: <strong>@Model.ApproverLabel</strong>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* ── Form ─────────────────────────────────────────────────────────── *@
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-plus-circle me-2"></i>New Leave Request</div>
+            <div class="card-body">
+
+                @if (!ViewData.ModelState.IsValid)
+                {
+                    <div class="alert alert-danger">
+                        <strong>Please fix the following:</strong>
+                        <ul class="mb-0 mt-1">
+                            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                            {
+                                <li>@error.ErrorMessage</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                <form asp-action="Apply" method="post" id="leaveForm">
+                    @Html.AntiForgeryToken()
+
+                    <div class="mb-3">
+                        <label asp-for="LeaveTypeId" class="form-label fw-semibold">Leave Type</label>
+                        <select asp-for="LeaveTypeId"
+                                asp-items="@(new SelectList(Model.AvailableLeaveTypes, "Id", "Name"))"
+                                class="form-select">
+                            <option value="">— Select a leave type —</option>
+                        </select>
+                        <span asp-validation-for="LeaveTypeId" class="text-danger small"></span>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            <label asp-for="StartDate" class="form-label fw-semibold">Start Date</label>
+                            <input asp-for="StartDate" type="date" class="form-control"
+                                   id="startDate" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                            <span asp-validation-for="StartDate" class="text-danger small"></span>
+                        </div>
+                        <div class="col-sm-6">
+                            <label asp-for="EndDate" class="form-label fw-semibold">End Date</label>
+                            <input asp-for="EndDate" type="date" class="form-control"
+                                   id="endDate" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                            <span asp-validation-for="EndDate" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <div id="daysPreview" class="alert alert-info py-2 px-3 mb-3" style="display:none;font-size:.9rem;">
+                        <i class="bi bi-calendar3 me-2"></i>
+                        <strong id="daysCount">0</strong> working day(s)
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="Reason" class="form-label fw-semibold">
+                            Reason <span class="text-muted fw-normal" style="font-size:.8125rem;">(min. 10 characters)</span>
+                        </label>
+                        <textarea asp-for="Reason" class="form-control" rows="4" id="reasonField"
+                                  placeholder="Briefly describe the reason for your leave..."></textarea>
+                        <div class="d-flex justify-content-between mt-1">
+                            <span asp-validation-for="Reason" class="text-danger small"></span>
+                            <span class="text-muted small" id="charCount">0 / 1000</span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                        <a asp-action="Dashboard" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="bi bi-send me-1"></i> Submit Request
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+    <script>
+        (() => {
+            const start = document.getElementById('startDate');
+            const end = document.getElementById('endDate');
+            const prev = document.getElementById('daysPreview');
+            const count = document.getElementById('daysCount');
+            const reason = document.getElementById('reasonField');
+            const chars = document.getElementById('charCount');
+            const btn = document.getElementById('submitBtn');
+
+            function workingDays(s, e) {
+                let n = 0;
+                const d = new Date(s);
+                while (d <= e) {
+                    const day = d.getDay();
+                    if (day !== 0 && day !== 6) n++;
+                    d.setDate(d.getDate() + 1);
+                }
+                return n;
+            }
+
+            function update() {
+                const s = start.value ? new Date(start.value) : null;
+                const e = end.value ? new Date(end.value) : null;
+                if (s && e && e >= s) {
+                    count.textContent = workingDays(s, e);
+                    prev.style.display = 'block';
+                } else {
+                    prev.style.display = 'none';
+                }
+            }
+
+            start.addEventListener('change', () => {
+                end.min = start.value;
+                if (end.value && end.value < start.value) end.value = start.value;
+                update();
+            });
+            end.addEventListener('change', update);
+
+            reason.addEventListener('input', () => {
+                const l = reason.value.length;
+                chars.textContent = `${l} / 1000`;
+                chars.style.color = l > 950 ? '#dc2626' : '#94a3b8';
+            });
+
+            document.getElementById('leaveForm').addEventListener('submit', () => {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Submitting...';
+            });
+        })();
+    </script>
+}
+

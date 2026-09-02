@@ -1,6 +1,5 @@
 ﻿using HR_Portal.Data;
 using HR_Portal.Interfaces;
-using HR_Portal.Models;
 using HR_Portal.Models.Domain;
 using HR_Portal.Models.Enums;
 using HR_Portal.Services;

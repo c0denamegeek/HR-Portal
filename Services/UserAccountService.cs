@@ -1,5 +1,5 @@
 ﻿using HR_Portal.Interfaces;
-using HR_Portal.Models;
+using HR_Portal.Models.Domain;
 using HR_Portal.ViewModel.AdminViewModels;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -114,6 +114,26 @@ namespace HR_Portal.Services
 
             user.IsActive = false;
             return await _userManager.UpdateAsync(user);
+        }
+
+        public async Task<IEnumerable<Users>> GetAllUsersAsync(string? search = null)
+        {
+            var query = _userManager.Users
+                .Include(u => u.Manager)
+                .Where(u => u.IsActive);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var lower = search.ToLower();
+                query = query.Where(u =>
+                    (u.Name != null && u.Name.ToLower().Contains(lower)) ||
+                    (u.Surname != null && u.Surname.ToLower().Contains(lower)) ||
+                    (u.Email != null && u.Email.ToLower().Contains(lower)) ||
+                    (u.Department != null && u.Department.ToLower().Contains(lower)) ||
+                    (u.JobTitle != null && u.JobTitle.ToLower().Contains(lower)));
+            }
+
+            return await query.OrderBy(u => u.Surname).ToListAsync();
         }
     }
 }

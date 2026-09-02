@@ -1,5 +1,5 @@
 ﻿using HR_Portal.Constants;
-using HR_Portal.Models;
+using HR_Portal.Models.Domain;
 using HR_Portal.ViewModel.AccountViewModels;
 using HR_Portal.ViewModel.LoginViewModels;
 using Microsoft.AspNetCore.Authorization;

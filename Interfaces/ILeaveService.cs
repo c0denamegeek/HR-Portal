@@ -11,7 +11,8 @@ namespace HR_Portal.Interfaces
 
         Task<IEnumerable<LeaveBalanceSummary>> GetLeaveBalancesAsync(string userId, int? year = null);
 
-
+        Task<IEnumerable<LeaveRequest>> GetEmployeeLeaveHistoryAsync(
+            string employeeId, int? year = null, LeaveStatus? status = null);
         /// Submits a leave request.
         /// - Employee: ApproverId set to their Manager's Id.
         /// - Manager:  ApproverId left null (Admin handles the queue).

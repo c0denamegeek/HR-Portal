@@ -1,4 +1,4 @@
-﻿using HR_Portal.Models;
+﻿using HR_Portal.Models.Domain;
 using HR_Portal.Models.Enums;
 using System.ComponentModel.DataAnnotations;
 

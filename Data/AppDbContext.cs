@@ -1,5 +1,4 @@
-﻿using HR_Portal.Models;
-using HR_Portal.Models.Domain;
+﻿using HR_Portal.Models.Domain;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;

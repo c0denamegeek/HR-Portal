@@ -94,6 +94,20 @@ namespace HR_Portal.Services
             return await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
         }
 
+        public async Task<IEnumerable<LeaveRequest>> GetEmployeeLeaveHistoryAsync(
+            string employeeId, int? year = null, LeaveStatus? status = null)
+        {
+            var query = _db.LeaveRequests
+                .Include(r => r.LeaveType)
+                .Include(r => r.Approver)
+                .Where(r => r.EmployeeId == employeeId);
+
+            if (year.HasValue) query = query.Where(r => r.StartDate.Year == year.Value);
+            if (status.HasValue) query = query.Where(r => r.Status == status.Value);
+
+            return await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
+        }
+
         public async Task CancelRequestAsync(int requestId, string userId)
         {
             var request = await _db.LeaveRequests.FirstOrDefaultAsync(r => r.Id == requestId)

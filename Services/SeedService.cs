@@ -1,6 +1,7 @@
 ﻿using HR_Portal.Constants;
 using HR_Portal.Data;
 using HR_Portal.Interfaces;
+using HR_Portal.Models.Domain;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,7 +25,7 @@ namespace HR_Portal.Services
                 await AddRoleAsync(roleManager, Roles.Admin);
                 await AddRoleAsync(roleManager, Roles.User);
 
-                var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Models.Users>>();
+                var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Users>>();
                 var userAccountService = scope.ServiceProvider.GetRequiredService<IUserAccountService>();
 
                 const string adminEmail = "alulutho.matoti@also-sa.com";

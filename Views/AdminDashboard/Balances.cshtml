@@ -1,7 +1,7 @@
 ﻿@model IEnumerable<HR_Portal.ViewModel.LeaveViewModels.LeaveBalanceSummary>
 @{
     ViewData["Title"] = "Leave Balances";
-    var users = (IEnumerable<HR_Portal.Models.Users>)ViewBag.Users;
+    var users = (IEnumerable<HR_Portal.Models.Domain.Users>)ViewBag.Users;
     var selectedId = (string?)ViewBag.SelectedEmployee;
 }
 

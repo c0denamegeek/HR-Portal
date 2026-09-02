@@ -1,5 +1,4 @@
-﻿using HR_Portal.Models;
-using HR_Portal.Models.Domain;
+﻿using HR_Portal.Models.Domain;
 using System.ComponentModel.DataAnnotations;
 
 namespace HR_Portal.ViewModel.UserViewModels

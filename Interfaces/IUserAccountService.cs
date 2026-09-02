@@ -1,4 +1,4 @@
-﻿using HR_Portal.Models;
+﻿using HR_Portal.Models.Domain;
 using HR_Portal.ViewModel.AdminViewModels;
 using Microsoft.AspNetCore.Identity;
 
@@ -25,5 +25,7 @@ namespace HR_Portal.Interfaces
         Task<IdentityResult> UpdateUserAsync(UserManagementViewModel vm);
 
         Task<IdentityResult> DeactivateUserAsync(string id);
+
+        Task<IEnumerable<Users>> GetAllUsersAsync(string? search = null);
     }
 }

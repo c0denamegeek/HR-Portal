@@ -147,5 +147,19 @@ namespace HR_Portal.Controllers
             result.AvailableManagers = managers;
             return result;
         }
+
+        [HttpGet]
+        public async Task<IActionResult> SearchUsers(string? search)
+        {
+            var users = await _userAccountService.GetAllUsersAsync(search);
+
+            var userRoles = new Dictionary<string, string>();
+            foreach (var u in users)
+                userRoles[u.Id] = u.IsManager ? "Manager" : "User";
+
+            ViewBag.UserRoles = userRoles;
+            ViewBag.Search = search;
+            return View(users);
+        }
     }
 }

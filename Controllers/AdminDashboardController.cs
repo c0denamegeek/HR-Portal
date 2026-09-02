@@ -17,11 +17,13 @@ namespace HR_Portal.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ILeaveService _leaveService;
+        private readonly IUserAccountService _userAccountService;
 
-        public AdminDashboardController(AppDbContext context, ILeaveService leaveService)
+        public AdminDashboardController(AppDbContext context, ILeaveService leaveService, IUserAccountService userAccountService)
         {
             _context = context;
             _leaveService = leaveService;
+            _userAccountService = userAccountService;
         }
 
         // GET /AdminDashboard/Index  (your existing home page)
@@ -207,6 +209,36 @@ namespace HR_Portal.Controllers
 
             var balances = await _leaveService.GetLeaveBalancesAsync(employeeId);
             return View(balances);
+        }
+
+        // GET /AdminDashboard/LeaveHistory/userId
+        [HttpGet]
+        public async Task<IActionResult> LeaveHistory(string employeeId, int? year, LeaveStatus? status)
+        {
+            var user = await _userAccountService.GetUserByIdAsync(employeeId);
+            if (user is null) return NotFound();
+
+            var requests = await _leaveService.GetEmployeeLeaveHistoryAsync(employeeId, year, status);
+            var balances = await _leaveService.GetLeaveBalancesAsync(employeeId, year);
+
+            ViewBag.EmployeeId = employeeId;
+            ViewBag.EmployeeFullName = user.FullName;
+            ViewBag.SelectedYear = year ?? DateTime.Today.Year;
+            ViewBag.SelectedStatus = status;
+
+            var vm = new EmployeeLeaveHistoryViewModel
+            {
+                EmployeeId = employeeId,
+                EmployeeFullName = user.FullName,
+                Department = user.Department ?? "-",
+                JobTitle = user.JobTitle ?? "-",
+                Requests = requests,
+                Balances = balances,
+                SelectedYear = year ?? DateTime.Today.Year,
+                StatusFilter = status
+            };
+
+            return View(vm);
         }
 
         // POST /AdminDashboard/ProvisionBalances

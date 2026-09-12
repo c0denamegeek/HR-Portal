@@ -1,32 +1,34 @@
 ﻿using HR_Portal.Constants;
-using HR_Portal.Data;
 using HR_Portal.Interfaces;
 using HR_Portal.Models;
+using HR_Portal.Models.Domain;
 using HR_Portal.Models.Enums;
-using HR_Portal.Services;
 using HR_Portal.ViewModel.AdminViewModels;
 using HR_Portal.ViewModel.LeaveViewModels;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace HR_Portal.Controllers
 {
     [Authorize(Roles = Roles.Admin)]
     public class AdminDashboardController : Controller
     {
-        private readonly AppDbContext _context;
         private readonly ILeaveService _leaveService;
         private readonly IUserAccountService _userAccountService;
+        private readonly UserManager<Users> _userManager;
 
-        public AdminDashboardController(AppDbContext context, ILeaveService leaveService, IUserAccountService userAccountService)
+        public AdminDashboardController(
+            ILeaveService leaveService,
+            IUserAccountService userAccountService,
+            UserManager<Users> userManager)
         {
-            _context = context;
             _leaveService = leaveService;
             _userAccountService = userAccountService;
+            _userManager = userManager;
         }
 
-        // GET /AdminDashboard/Index  (your existing home page)
+        // GET /AdminDashboard/Dashboard
         [HttpGet]
         public async Task<IActionResult> Dashboard()
         {
@@ -35,7 +37,7 @@ namespace HR_Portal.Controllers
 
             var vm = new AdminDashboardViewModel
             {
-                TotalUsers = await _context.Users.CountAsync(u => u.IsActive),
+                TotalUsers = await _leaveService.GetActiveUserCountAsync(),
                 TotalPending = allRequests.Count(r => r.Status == LeaveStatus.Pending),
                 TotalApproved = allRequests.Count(r => r.Status == LeaveStatus.Approved),
                 TotalRejected = allRequests.Count(r => r.Status == LeaveStatus.Rejected),
@@ -56,12 +58,7 @@ namespace HR_Portal.Controllers
         {
             var requests = await _leaveService.GetAllRequestsAsync(department, status, year);
 
-            ViewBag.Departments = await _context.Users
-                .Where(u => u.Department != null)
-                .Select(u => u.Department)
-                .Distinct()
-                .ToListAsync();
-
+            ViewBag.Departments = await _leaveService.GetDepartmentsAsync();
             ViewBag.SelectedDept = department;
             ViewBag.SelectedStatus = status;
             ViewBag.SelectedYear = year ?? DateTime.Today.Year;
@@ -76,8 +73,8 @@ namespace HR_Portal.Controllers
             var request = await _leaveService.GetRequestByIdAsync(id);
             if (request is null) return NotFound();
 
-            var balance = await _leaveService.GetLeaveBalancesAsync(request.EmployeeId);
-            var remaining = balance
+            var balances = await _leaveService.GetLeaveBalancesAsync(request.EmployeeId);
+            var remaining = balances
                 .FirstOrDefault(b => b.LeaveTypeName == request.LeaveType.Name)?.RemainingDays ?? 0;
 
             var vm = new LeaveApprovalViewModel
@@ -96,24 +93,65 @@ namespace HR_Portal.Controllers
             return View(vm);
         }
 
+        // POST /AdminDashboard/Approve
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Approve(LeaveApprovalViewModel vm)
+        {
+            var adminId = _userManager.GetUserId(User)!;
+            try
+            {
+                await _leaveService.ApproveRequestAsync(vm.LeaveRequestId, adminId, vm.Comments);
+                TempData["Success"] = "Leave request approved.";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+            return RedirectToAction(nameof(AllRequests));
+        }
+
+        // POST /AdminDashboard/Reject
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Reject(LeaveApprovalViewModel vm)
+        {
+            var adminId = _userManager.GetUserId(User)!;
+            try
+            {
+                await _leaveService.RejectRequestAsync(vm.LeaveRequestId, adminId, vm.Comments);
+                TempData["Success"] = "Leave request rejected.";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+            return RedirectToAction(nameof(AllRequests));
+        }
+
+        // GET /AdminDashboard/Balances
+        [HttpGet]
+        public async Task<IActionResult> Balances(string? employeeId)
+        {
+            ViewBag.Users = await _userAccountService.GetAllUsersAsync();
+            ViewBag.SelectedEmployee = employeeId;
+
+            if (string.IsNullOrEmpty(employeeId))
+                return View(Enumerable.Empty<LeaveBalanceSummary>());
+
+            var balances = await _leaveService.GetLeaveBalancesAsync(employeeId);
+            return View(balances);
+        }
+
         // GET /AdminDashboard/EditBalance
         [HttpGet]
         public async Task<IActionResult> EditBalance(string employeeId, int leaveTypeId, int year)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == employeeId);
+            var user = await _userAccountService.GetUserByIdAsync(employeeId);
             if (user is null) return NotFound();
 
-            var leaveTypes = await _context.LeaveTypes
-                .Where(t => t.IsActive)
-                .OrderBy(t => t.Name)
-                .ToListAsync();
-
-            // Try to load existing balance
-            var existing = await _context.LeaveBalances
-                .FirstOrDefaultAsync(b =>
-                    b.EmployeeId == employeeId &&
-                    b.LeaveTypeId == leaveTypeId &&
-                    b.Year == year);
+            var leaveTypes = await _leaveService.GetLeaveTypesAsync();
+            var existing = await _leaveService.GetLeaveBalanceAsync(employeeId, leaveTypeId, year);
 
             var vm = new LeaveBalanceEditViewModel
             {
@@ -137,108 +175,15 @@ namespace HR_Portal.Controllers
         {
             if (!ModelState.IsValid)
             {
-                vm.AvailableLeaveTypes = await _context.LeaveTypes
-                    .Where(t => t.IsActive)
-                    .OrderBy(t => t.Name)
-                    .ToListAsync();
-
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == vm.EmployeeId);
+                vm.AvailableLeaveTypes = await _leaveService.GetLeaveTypesAsync();
+                var user = await _userAccountService.GetUserByIdAsync(vm.EmployeeId);
                 vm.EmployeeFullName = user?.FullName ?? string.Empty;
                 return View(vm);
             }
 
             await _leaveService.UpsertLeaveBalanceAsync(vm);
-            TempData["Success"] = $"Balance updated successfully for {vm.EmployeeFullName}.";
+            TempData["Success"] = $"Balance updated for {vm.EmployeeFullName}.";
             return RedirectToAction(nameof(Balances), new { employeeId = vm.EmployeeId });
-        }
-
-        // POST /AdminDashboard/Approve
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Approve(LeaveApprovalViewModel vm)
-        {
-            var adminId = _context.Users
-                .FirstOrDefault(u => u.UserName == User.Identity!.Name)?.Id;
-
-            try
-            {
-                await _leaveService.ApproveRequestAsync(vm.LeaveRequestId, adminId!, vm.Comments);
-                TempData["Success"] = "Leave request approved.";
-            }
-            catch (Exception ex)
-            {
-                TempData["Error"] = ex.Message;
-            }
-
-            return RedirectToAction(nameof(AllRequests));
-        }
-
-        // POST /AdminDashboard/Reject
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Reject(LeaveApprovalViewModel vm)
-        {
-            var adminId = _context.Users
-                .FirstOrDefault(u => u.UserName == User.Identity!.Name)?.Id;
-
-            try
-            {
-                await _leaveService.RejectRequestAsync(vm.LeaveRequestId, adminId!, vm.Comments);
-                TempData["Success"] = "Leave request rejected.";
-            }
-            catch (Exception ex)
-            {
-                TempData["Error"] = ex.Message;
-            }
-
-            return RedirectToAction(nameof(AllRequests));
-        }
-
-        // GET /AdminDashboard/Balances
-        [HttpGet]
-        public async Task<IActionResult> Balances(string? employeeId)
-        {
-            ViewBag.Users = await _context.Users
-                .Where(u => u.IsActive)
-                .OrderBy(u => u.Surname)
-                .ToListAsync();
-            ViewBag.SelectedEmployee = employeeId;
-
-            if (string.IsNullOrEmpty(employeeId))
-                return View(Enumerable.Empty<LeaveBalanceSummary>());
-
-            var balances = await _leaveService.GetLeaveBalancesAsync(employeeId);
-            return View(balances);
-        }
-
-        // GET /AdminDashboard/LeaveHistory/userId
-        [HttpGet]
-        public async Task<IActionResult> LeaveHistory(string employeeId, int? year, LeaveStatus? status)
-        {
-            var user = await _userAccountService.GetUserByIdAsync(employeeId);
-            if (user is null) return NotFound();
-
-            var requests = await _leaveService.GetEmployeeLeaveHistoryAsync(employeeId, year, status);
-            var balances = await _leaveService.GetLeaveBalancesAsync(employeeId, year);
-
-            ViewBag.EmployeeId = employeeId;
-            ViewBag.EmployeeFullName = user.FullName;
-            ViewBag.SelectedYear = year ?? DateTime.Today.Year;
-            ViewBag.SelectedStatus = status;
-
-            var vm = new EmployeeLeaveHistoryViewModel
-            {
-                EmployeeId = employeeId,
-                EmployeeFullName = user.FullName,
-                Department = user.Department ?? "-",
-                JobTitle = user.JobTitle ?? "-",
-                Requests = requests,
-                Balances = balances,
-                SelectedYear = year ?? DateTime.Today.Year,
-                StatusFilter = status
-            };
-
-            return View(vm);
         }
 
         // POST /AdminDashboard/ProvisionBalances
@@ -255,8 +200,50 @@ namespace HR_Portal.Controllers
         [HttpGet]
         public async Task<IActionResult> LeaveTypes()
         {
-            var types = await _context.LeaveTypes.OrderBy(t => t.Name).ToListAsync();
+            var types = await _leaveService.GetLeaveTypesAsync();
             return View(types);
+        }
+
+        // GET /AdminDashboard/LeaveHistory
+        [HttpGet]
+        public async Task<IActionResult> LeaveHistory(string? search, string? department)
+        {
+            var users = await _userAccountService.GetAllUsersAsync(search);
+
+            if (!string.IsNullOrEmpty(department))
+                users = users.Where(u => u.Department == department);
+
+            ViewBag.Search = search;
+            ViewBag.Departments = await _leaveService.GetDepartmentsAsync();
+            ViewBag.SelectedDept = department;
+
+            return View(users);
+        }
+
+        // GET /AdminDashboard/EmployeeLeaveHistory
+        [HttpGet]
+        public async Task<IActionResult> EmployeeLeaveHistory(
+            string employeeId, int? year, LeaveStatus? status)
+        {
+            var user = await _userAccountService.GetUserByIdAsync(employeeId);
+            if (user is null) return NotFound();
+
+            var requests = await _leaveService.GetEmployeeLeaveHistoryAsync(employeeId, year, status);
+            var balances = await _leaveService.GetLeaveBalancesAsync(employeeId, year);
+
+            var vm = new EmployeeLeaveHistoryViewModel
+            {
+                EmployeeId = employeeId,
+                EmployeeFullName = user.FullName,
+                Department = user.Department ?? "-",
+                JobTitle = user.JobTitle ?? "-",
+                Requests = requests,
+                Balances = balances,
+                SelectedYear = year ?? DateTime.Today.Year,
+                StatusFilter = status
+            };
+
+            return View(vm);
         }
     }
 }

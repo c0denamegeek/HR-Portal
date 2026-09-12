@@ -7,41 +7,47 @@ namespace HR_Portal.Interfaces
 {
     public interface ILeaveService
     {
-        // ── Any User (employee or manager) ────────────────────────────────
+        // ── Any User ──────────────────────────────────────────────────────
 
         Task<IEnumerable<LeaveBalanceSummary>> GetLeaveBalancesAsync(string userId, int? year = null);
 
-        Task<IEnumerable<LeaveRequest>> GetEmployeeLeaveHistoryAsync(
-            string employeeId, int? year = null, LeaveStatus? status = null);
-        /// Submits a leave request.
-        /// - Employee: ApproverId set to their Manager's Id.
-        /// - Manager:  ApproverId left null (Admin handles the queue).
         Task<LeaveRequest> SubmitRequestAsync(string userId, LeaveRequestViewModel vm);
 
         Task<IEnumerable<LeaveRequest>> GetMyRequestsAsync(string userId, LeaveStatus? status = null, int? year = null);
 
         Task CancelRequestAsync(int requestId, string userId);
 
-        // ── Manager approval (IsManager = true, still User role) ──────────
+        // ── Manager ───────────────────────────────────────────────────────
 
-        /// Pending requests from this manager's direct reports.
         Task<IEnumerable<LeaveRequest>> GetPendingForManagerAsync(string managerId);
 
         Task ApproveRequestAsync(int requestId, string reviewerId, string? comments);
 
         Task RejectRequestAsync(int requestId, string reviewerId, string? comments);
 
-        /// All requests across the company.
-        /// Includes manager-submitted requests (ApproverId = null) that only Admin can action.
+        // ── Admin ─────────────────────────────────────────────────────────
 
         Task<IEnumerable<LeaveRequest>> GetAllRequestsAsync(string? department = null, LeaveStatus? status = null, int? year = null);
 
-        /// <summary>Pending requests submitted by managers (no ApproverId — Admin queue).</summary>
         Task<IEnumerable<LeaveRequest>> GetManagerRequestsPendingAdminAsync();
+
+        Task<IEnumerable<LeaveRequest>> GetEmployeeLeaveHistoryAsync(string employeeId, int? year = null, LeaveStatus? status = null);
 
         Task UpsertLeaveBalanceAsync(LeaveBalanceEditViewModel vm);
 
         Task ProvisionYearlyBalancesAsync(int year);
+
+        // ── Admin helpers ─────────────────────────────────────────────────
+
+        Task<int> GetActiveUserCountAsync();
+
+        Task<IEnumerable<string?>> GetDepartmentsAsync();
+
+        Task<IEnumerable<LeaveType>> GetLeaveTypesAsync(bool activeOnly = true);
+
+        Task<LeaveBalance?> GetLeaveBalanceAsync(string employeeId, int leaveTypeId, int year);
+
+        Task<AdminDashboardViewModel> GetDashboardStatsAsync();
 
         // ── Shared ────────────────────────────────────────────────────────
 

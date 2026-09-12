@@ -1,4 +1,5 @@
-﻿using HR_Portal.Models.Domain;
+﻿using HR_Portal.Models;
+using HR_Portal.Models.Domain;
 using HR_Portal.ViewModel.AdminViewModels;
 using Microsoft.AspNetCore.Identity;
 
@@ -18,14 +19,16 @@ namespace HR_Portal.Interfaces
             bool isManager = false,
             string? managerId = null);
 
-        Task<IEnumerable<Users>> GetAllUsersAsync();
+        /// <summary>
+        /// Returns all active users. Pass a search term to filter by
+        /// name, surname, email, department or job title.
+        /// </summary>
+        Task<IEnumerable<Users>> GetAllUsersAsync(string? search = null);
 
         Task<Users?> GetUserByIdAsync(string id);
 
         Task<IdentityResult> UpdateUserAsync(UserManagementViewModel vm);
 
         Task<IdentityResult> DeactivateUserAsync(string id);
-
-        Task<IEnumerable<Users>> GetAllUsersAsync(string? search = null);
     }
 }

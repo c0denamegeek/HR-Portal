@@ -16,20 +16,23 @@ namespace HR_Portal.Services
 
             try
             {
+                // Apply any pending migrations
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 logger.LogInformation("Applying pending migrations.");
                 await context.Database.MigrateAsync();
 
+                // Seed roles
                 var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
                 logger.LogInformation("Seeding roles.");
                 await AddRoleAsync(roleManager, Roles.Admin);
                 await AddRoleAsync(roleManager, Roles.User);
 
+                // Seed default admin user
                 var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Users>>();
                 var userAccountService = scope.ServiceProvider.GetRequiredService<IUserAccountService>();
 
                 const string adminEmail = "alulutho.matoti@also-sa.com";
-                if (await userManager.FindByEmailAsync(adminEmail) == null)
+                if (await userManager.FindByEmailAsync(adminEmail) is null)
                 {
                     logger.LogInformation("Seeding admin user.");
                     var result = await userAccountService.CreateUserAsync(
@@ -41,10 +44,8 @@ namespace HR_Portal.Services
                         role: Roles.Admin);
 
                     if (!result.Succeeded)
-                    {
-                        logger.LogError("Failed to create Admin User: {Errors}",
+                        logger.LogError("Failed to create admin user: {Errors}",
                             string.Join(", ", result.Errors.Select(e => e.Description)));
-                    }
                 }
             }
             catch (Exception ex)
@@ -59,10 +60,8 @@ namespace HR_Portal.Services
             {
                 var result = await roleManager.CreateAsync(new IdentityRole(roleName));
                 if (!result.Succeeded)
-                {
                     throw new Exception(
                         $"Failed to create role '{roleName}': {string.Join(", ", result.Errors.Select(e => e.Description))}");
-                }
             }
         }
     }

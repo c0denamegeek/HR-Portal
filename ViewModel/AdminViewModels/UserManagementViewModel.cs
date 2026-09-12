@@ -1,4 +1,5 @@
-﻿using HR_Portal.Models.Domain;
+﻿using HR_Portal.Models;
+using HR_Portal.Models.Domain;
 using HR_Portal.Models.Enums;
 using System.ComponentModel.DataAnnotations;
 
@@ -28,7 +29,7 @@ namespace HR_Portal.ViewModel.AdminViewModels
 
         [Required]
         [Display(Name = "Department")]
-        public Department Department { get; set; }   // ← enum now
+        public Department Department { get; set; }
 
         [Display(Name = "Role")]
         public string Role { get; set; } = "User";

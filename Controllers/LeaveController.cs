@@ -1,35 +1,32 @@
-﻿using HR_Portal.Data;
+﻿using HR_Portal.Constants;
 using HR_Portal.Interfaces;
+using HR_Portal.Models;
 using HR_Portal.Models.Domain;
 using HR_Portal.Models.Enums;
-using HR_Portal.Services;
 using HR_Portal.ViewModel.LeaveViewModels;
 using HR_Portal.ViewModel.UserViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace HR_Portal.Controllers
 {
-    [Authorize(Roles = "User")]
+    [Authorize(Roles = Roles.User)]
     public class LeaveController : Controller
     {
         private readonly ILeaveService _leaveService;
         private readonly UserManager<Users> _userManager;
-        private readonly AppDbContext _db;
 
         public LeaveController(
             ILeaveService leaveService,
-            UserManager<Users> userManager,
-            AppDbContext db)
+            UserManager<Users> userManager)
         {
             _leaveService = leaveService;
             _userManager = userManager;
-            _db = db;
         }
 
         // GET /Leave/Dashboard
+        [HttpGet]
         public async Task<IActionResult> Dashboard()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -38,22 +35,22 @@ namespace HR_Portal.Controllers
             var balances = await _leaveService.GetLeaveBalancesAsync(user.Id);
             var requests = await _leaveService.GetMyRequestsAsync(user.Id);
 
-            // Manager nav badge
+            // Only call once and reuse
+            var pendingTeam = user.IsManager
+                ? await _leaveService.GetPendingForManagerAsync(user.Id)
+                : Enumerable.Empty<LeaveRequest>();
+
             ViewBag.IsManager = user.IsManager;
-            ViewBag.PendingTeamCount = user.IsManager
-                ? (await _leaveService.GetPendingForManagerAsync(user.Id)).Count()
-                : 0;
+            ViewBag.PendingTeamCount = pendingTeam.Count();
 
             var vm = new UserDashboardViewModel
             {
-                FullName = $"{user.Name} {user.Surname}",
+                FullName = user.FullName,
                 IsManager = user.IsManager,
                 ApproverLabel = user.IsManager ? "HR Admin" : "Your Manager",
                 Balances = balances,
                 RecentRequests = requests.Take(5),
-                PendingTeamRequests = user.IsManager
-                    ? await _leaveService.GetPendingForManagerAsync(user.Id)
-                    : Enumerable.Empty<LeaveRequest>(),
+                PendingTeamRequests = pendingTeam,
                 SelectedYear = DateTime.Today.Year
             };
 
@@ -61,6 +58,7 @@ namespace HR_Portal.Controllers
         }
 
         // GET /Leave/Apply
+        [HttpGet]
         public async Task<IActionResult> Apply()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -72,8 +70,7 @@ namespace HR_Portal.Controllers
                 return RedirectToAction(nameof(Dashboard));
             }
 
-            var vm = await BuildApplyVmAsync(user);
-            return View(vm);
+            return View(await BuildApplyVmAsync(user));
         }
 
         // POST /Leave/Apply
@@ -107,15 +104,18 @@ namespace HR_Portal.Controllers
         }
 
         // GET /Leave/MyRequests
+        [HttpGet]
         public async Task<IActionResult> MyRequests(LeaveStatus? status, int? year)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user is null) return Challenge();
 
-            ViewBag.IsManager = user.IsManager;
-            ViewBag.PendingTeamCount = user.IsManager
+            var pendingTeamCount = user.IsManager
                 ? (await _leaveService.GetPendingForManagerAsync(user.Id)).Count()
                 : 0;
+
+            ViewBag.IsManager = user.IsManager;
+            ViewBag.PendingTeamCount = pendingTeamCount;
 
             var vm = new LeaveRequestListViewModel
             {
@@ -128,14 +128,13 @@ namespace HR_Portal.Controllers
             return View(vm);
         }
 
-        // GET /Leave/TeamRequests  (managers only)
+        // GET /Leave/TeamRequests (managers only)
+        [HttpGet]
         public async Task<IActionResult> TeamRequests()
         {
             var user = await _userManager.GetUserAsync(User);
             if (user is null) return Challenge();
-
-            if (!user.IsManager)
-                return Forbid();
+            if (!user.IsManager) return Forbid();
 
             ViewBag.IsManager = true;
             ViewBag.PendingTeamCount = 0;
@@ -144,7 +143,8 @@ namespace HR_Portal.Controllers
             return View(pending);
         }
 
-        // GET /Leave/ReviewRequest/5  (managers only)
+        // GET /Leave/ReviewRequest/5 (managers only)
+        [HttpGet]
         public async Task<IActionResult> ReviewRequest(int id)
         {
             var user = await _userManager.GetUserAsync(User);
@@ -155,8 +155,8 @@ namespace HR_Portal.Controllers
             if (request is null) return NotFound();
             if (request.ApproverId != user.Id) return Forbid();
 
-            var balance = await _leaveService.GetLeaveBalancesAsync(request.EmployeeId);
-            var remaining = balance
+            var balances = await _leaveService.GetLeaveBalancesAsync(request.EmployeeId);
+            var remaining = balances
                 .FirstOrDefault(b => b.LeaveTypeName == request.LeaveType.Name)?.RemainingDays ?? 0;
 
             ViewBag.IsManager = true;
@@ -165,7 +165,7 @@ namespace HR_Portal.Controllers
             var vm = new LeaveApprovalViewModel
             {
                 LeaveRequestId = request.Id,
-                EmployeeFullName = $"{request.Employee.Name} {request.Employee.Surname}",
+                EmployeeFullName = request.Employee.FullName,
                 Department = request.Employee.Department ?? "-",
                 LeaveTypeName = request.LeaveType.Name,
                 StartDate = request.StartDate,
@@ -212,7 +212,7 @@ namespace HR_Portal.Controllers
             try
             {
                 await _leaveService.RejectRequestAsync(vm.LeaveRequestId, user.Id, vm.Comments);
-                TempData["Error"] = "Leave request rejected.";
+                TempData["Success"] = "Leave request rejected.";
             }
             catch (Exception ex)
             {
@@ -252,19 +252,12 @@ namespace HR_Portal.Controllers
             if (!string.IsNullOrEmpty(user.ManagerId))
                 manager = await _userManager.FindByIdAsync(user.ManagerId);
 
-            var leaveTypes = await _db.LeaveTypes
-                .Where(lt => lt.IsActive)
-                .OrderBy(lt => lt.Name)
-                .ToListAsync();
-
-            var balances = await _leaveService.GetLeaveBalancesAsync(user.Id);
-
             var vm = existing ?? new LeaveRequestViewModel();
-            vm.AvailableLeaveTypes = leaveTypes;
-            vm.CurrentBalances = balances;
+            vm.AvailableLeaveTypes = await _leaveService.GetLeaveTypesAsync();
+            vm.CurrentBalances = await _leaveService.GetLeaveBalancesAsync(user.Id);
             vm.ApproverLabel = user.IsManager
                 ? "HR Admin"
-                : manager is not null ? $"{manager.Name} {manager.Surname}" : "Not assigned";
+                : manager is not null ? manager.FullName : "Not assigned";
 
             return vm;
         }

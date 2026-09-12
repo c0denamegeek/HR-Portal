@@ -1,137 +1,67 @@
-﻿@model HR_Portal.ViewModel.AdminViewModels.EmployeeLeaveHistoryViewModel
+﻿@model IEnumerable<HR_Portal.Models.Domain.Users>
 @{
-    ViewData["Title"] = $"Leave History — {Model.EmployeeFullName}";
+    ViewData["Title"] = "Leave History";
 }
 
-@* ── Employee info ────────────────────────────────────────────────────────── *@
-<div class="card mb-4">
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
-            <div>
-                <h5 class="mb-1 fw-700">@Model.EmployeeFullName</h5>
-                <div style="font-size:.875rem;color:#64748b;">
-                    @Model.JobTitle — @Model.Department
-                </div>
-            </div>
-            <div class="d-flex gap-4">
-                <div class="text-center">
-                    <div style="font-size:1.5rem;font-weight:700;color:#2563EB;">@Model.TotalTaken</div>
-                    <div style="font-size:.75rem;color:#94a3b8;">Days Taken</div>
-                </div>
-                <div class="text-center">
-                    <div style="font-size:1.5rem;font-weight:700;color:#D97706;">@Model.TotalPending</div>
-                    <div style="font-size:.75rem;color:#94a3b8;">Days Pending</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-@* ── Balances ─────────────────────────────────────────────────────────────── *@
-<div class="row g-3 mb-4">
-    @foreach (var b in Model.Balances)
-    {
-        var pct = b.TotalDays > 0 ? (double)b.RemainingDays / (double)b.TotalDays * 100 : 0;
-        var barClass = pct > 50 ? "bar-good" : pct > 20 ? "bar-warn" : "bar-low";
-        <div class="col-sm-6 col-lg-3">
-            <div class="card p-3">
-                <div class="d-flex justify-content-between mb-1">
-                    <span style="font-size:.8rem;font-weight:600;color:#64748b;">@b.LeaveTypeName</span>
-                    <span style="font-weight:700;color:#2563EB;">@b.RemainingDays left</span>
-                </div>
-                <div class="balance-bar-track mb-1">
-                    <div class="balance-bar @barClass" style="width:@pct.ToString("F0")%"></div>
-                </div>
-                <div class="d-flex justify-content-between" style="font-size:.75rem;color:#94a3b8;">
-                    <span>@b.UsedDays used</span>
-                    @if (b.PendingDays > 0)
-                    {
-                        <span style="color:#D97706;">@b.PendingDays pending</span>
-                    }
-                    <span>@b.TotalDays total</span>
-                </div>
-            </div>
-        </div>
-    }
-</div>
-
-@* ── Request history ──────────────────────────────────────────────────────── *@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span><i class="bi bi-clock-history me-2"></i>Request History</span>
-        <div class="d-flex gap-2 flex-wrap">
-            <form method="get" class="d-flex gap-2">
-                <input type="hidden" name="employeeId" value="@Model.EmployeeId" />
-                <select name="status" class="form-select form-select-sm" style="width:auto;"
-                        onchange="this.form.submit()">
-                    <option value="">All Statuses</option>
-                    @foreach (var s in Enum.GetValues<HR_Portal.Models.Enums.LeaveStatus>())
-                    {
-                        <option value="@s" selected="@(Model.StatusFilter == s)">@s</option>
-                    }
-                </select>
-                <select name="year" class="form-select form-select-sm" style="width:auto;"
-                        onchange="this.form.submit()">
-                    @for (int y = DateTime.Today.Year; y >= DateTime.Today.Year - 3; y--)
-                    {
-                        <option value="@y" selected="@(Model.SelectedYear == y)">@y</option>
-                    }
-                </select>
-            </form>
-            <a asp-action="AllRequests" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-left me-1"></i> Back
-            </a>
-        </div>
+        <span><i class="bi bi-clock-history me-2"></i>Leave History</span>
+
+        <form method="get" class="d-flex gap-2 flex-wrap">
+
+            @* Search *@
+            <div class="input-group input-group-sm">
+                <input type="text" name="search" value="@ViewBag.Search"
+                       class="form-control"
+                       placeholder="Search"
+                       style="min-width:200px;" />
+                <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search"></i></button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(ViewBag.Search as string) || !string.IsNullOrEmpty(ViewBag.SelectedDept as string))
+            {
+                <a asp-action="LeaveHistory" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-search"></i>Clear
+                </a>
+            }
+        </form>
     </div>
 
     <div class="card-body p-0">
-        @if (Model.Requests.Any())
+        @if (Model.Any())
         {
             <table class="table table-hover mb-0">
                 <thead style="background:#f8fafc;font-size:.8125rem;color:#64748b;">
                     <tr>
-                        <th class="px-4 py-3">Leave Type</th>
-                        <th class="py-3">Start</th>
-                        <th class="py-3">End</th>
-                        <th class="py-3">Days</th>
-                        <th class="py-3">Status</th>
-                        <th class="py-3">Reviewed By</th>
-                        <th class="py-3">Comments</th>
-                        <th class="py-3">Submitted</th>
+                        <th class="px-4 py-3">Name</th>
+                        <th class="py-3">Email</th>
+                        <th class="py-3">Department</th>
+                        <th class="py-3">Job Title</th>
+                        <th class="py-3">Clock No.</th>
+                        <th class="py-3"></th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var r in Model.Requests)
+                    @foreach (var user in Model)
                     {
                         <tr>
-                            <td class="px-4 py-3" style="font-weight:600;">@r.LeaveType.Name</td>
-                            <td class="py-3">@r.StartDate.ToString("dd MMM yyyy")</td>
-                            <td class="py-3">@r.EndDate.ToString("dd MMM yyyy")</td>
-                            <td class="py-3">@r.TotalDays</td>
+                            <td class="px-4 py-3">
+                                <div style="font-weight:600;">@user.FullName</div>
+                                @if (user.IsManager)
+                                {
+                                    <span class="badge bg-success" style="font-size:.7rem;">Manager</span>
+                                }
+                            </td>
+                            <td class="py-3" style="font-size:.875rem;color:#64748b;">@user.Email</td>
+                            <td class="py-3" style="color:#64748b;">@(user.Department ?? "-")</td>
+                            <td class="py-3" style="color:#64748b;">@(user.JobTitle ?? "-")</td>
+                            <td class="py-3" style="color:#64748b;">@(user.ClockNumber?.ToString() ?? "-")</td>
                             <td class="py-3">
-                                <span class="status-badge status-@r.Status.ToString().ToLower()">
-                                    @r.Status
-                                </span>
-                            </td>
-                            <td class="py-3" style="font-size:.875rem;color:#64748b;">
-                                @if (r.Approver is not null)
-                                {
-                                    @r.Approver.FullName
-                                }
-                                else if (r.Status == HR_Portal.Models.Enums.LeaveStatus.Pending)
-                                {
-                                    <span style="color:#D97706;">Awaiting review</span>
-                                }
-                                else
-                                {
-                                    <span>—</span>
-                                }
-                            </td>
-                            <td class="py-3" style="font-size:.875rem;color:#64748b;">
-                                @(string.IsNullOrEmpty(r.ReviewerComments) ? "—" : r.ReviewerComments)
-                            </td>
-                            <td class="py-3" style="font-size:.875rem;color:#64748b;">
-                                @r.CreatedAt.ToString("dd MMM yyyy")
+                                <a asp-action="EmployeeLeaveHistory"
+                                asp-route-employeeId="@user.Id"
+                                class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i> View History
+                                </a>
                             </td>
                         </tr>
                     }
@@ -141,10 +71,17 @@
         else
         {
             <div class="text-center py-5" style="color:#94a3b8;">
-                <i class="bi bi-inbox" style="font-size:2rem;"></i>
-                <p class="mt-2 mb-0">No leave requests found for this period.</p>
+                <i class="bi bi-search" style="font-size:2rem;"></i>
+                @if (!string.IsNullOrEmpty(ViewBag.Search as string) || !string.IsNullOrEmpty(ViewBag.SelectedDept as string))
+                {
+                    <p class="mt-2 mb-1">No employees found matching your search.</p>
+                    <a asp-action="LeaveHistory" class="btn btn-outline-secondary btn-sm mt-2">Clear Search</a>
+                }
+                else
+                {
+                    <p class="mt-2 mb-0">No employees found.</p>
+                }
             </div>
         }
     </div>
 </div>
-

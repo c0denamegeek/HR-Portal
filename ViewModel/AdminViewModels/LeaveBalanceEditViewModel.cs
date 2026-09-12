@@ -3,7 +3,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace HR_Portal.ViewModel.AdminViewModels
 {
-    /// <summary>Admin form to adjust a specific leave balance.</summary>
     public class LeaveBalanceEditViewModel
     {
         public int? BalanceId { get; set; }

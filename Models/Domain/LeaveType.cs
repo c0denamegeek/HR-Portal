@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-
 namespace HR_Portal.Models.Domain
 {
     public class LeaveType

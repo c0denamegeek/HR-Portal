@@ -1,4 +1,5 @@
-﻿using HR_Portal.Models.Domain;
+﻿using HR_Portal.Models;
+using HR_Portal.Models.Domain;
 using HR_Portal.Models.Enums;
 using HR_Portal.ViewModel.LeaveViewModels;
 
@@ -15,9 +16,8 @@ namespace HR_Portal.ViewModel.AdminViewModels
         public int SelectedYear { get; set; } = DateTime.Today.Year;
         public LeaveStatus? StatusFilter { get; set; }
 
-        public int TotalTaken => Requests
-            .Where(r => r.Status == LeaveStatus.Approved).Sum(r => r.TotalDays);
-        public int TotalPending => Requests
-            .Where(r => r.Status == LeaveStatus.Pending).Sum(r => r.TotalDays);
+        // Computed
+        public int TotalTaken => Requests.Where(r => r.Status == LeaveStatus.Approved).Sum(r => r.TotalDays);
+        public int TotalPending => Requests.Where(r => r.Status == LeaveStatus.Pending).Sum(r => r.TotalDays);
     }
 }

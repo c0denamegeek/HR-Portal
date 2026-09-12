@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HR_Portal.Services
 {
-
     public class LeaveService : ILeaveService
     {
         private readonly AppDbContext _db;
@@ -17,7 +16,8 @@ namespace HR_Portal.Services
 
         // ── Any User ──────────────────────────────────────────────────────
 
-        public async Task<IEnumerable<LeaveBalanceSummary>> GetLeaveBalancesAsync(string userId, int? year = null)
+        public async Task<IEnumerable<LeaveBalanceSummary>> GetLeaveBalancesAsync(
+            string userId, int? year = null)
         {
             var targetYear = year ?? DateTime.Today.Year;
             return await _db.LeaveBalances
@@ -47,14 +47,12 @@ namespace HR_Portal.Services
                 b.EmployeeId == userId &&
                 b.LeaveTypeId == vm.LeaveTypeId &&
                 b.Year == vm.StartDate.Year)
-                ?? throw new InvalidOperationException("No leave balance found for the selected leave type.");
+                ?? throw new InvalidOperationException(
+                    "No leave balance found for the selected leave type.");
 
             if (balance.RemainingDays < totalDays)
                 throw new InvalidOperationException(
                     $"Insufficient balance. You have {balance.RemainingDays} day(s) remaining.");
-
-            // Employees → routed to their manager. Managers → null (Admin queue).
-            var approverId = user.IsManager ? null : user.ManagerId;
 
             if (!user.IsManager && string.IsNullOrEmpty(user.ManagerId))
                 throw new InvalidOperationException(
@@ -69,7 +67,7 @@ namespace HR_Portal.Services
                 TotalDays = totalDays,
                 Reason = vm.Reason,
                 Status = LeaveStatus.Pending,
-                ApproverId = approverId,
+                ApproverId = user.IsManager ? null : user.ManagerId,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -90,20 +88,6 @@ namespace HR_Portal.Services
 
             if (status.HasValue) query = query.Where(r => r.Status == status.Value);
             if (year.HasValue) query = query.Where(r => r.StartDate.Year == year.Value);
-
-            return await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
-        }
-
-        public async Task<IEnumerable<LeaveRequest>> GetEmployeeLeaveHistoryAsync(
-            string employeeId, int? year = null, LeaveStatus? status = null)
-        {
-            var query = _db.LeaveRequests
-                .Include(r => r.LeaveType)
-                .Include(r => r.Approver)
-                .Where(r => r.EmployeeId == employeeId);
-
-            if (year.HasValue) query = query.Where(r => r.StartDate.Year == year.Value);
-            if (status.HasValue) query = query.Where(r => r.Status == status.Value);
 
             return await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
         }
@@ -146,14 +130,14 @@ namespace HR_Portal.Services
         public async Task ApproveRequestAsync(int requestId, string reviewerId, string? comments)
         {
             var request = await GetRequestOrThrowAsync(requestId);
-
-            // Either the assigned manager or an Admin (ApproverId = null path)
             EnsureCanReview(request, reviewerId);
 
             if (request.Status != LeaveStatus.Pending)
                 throw new InvalidOperationException("Only pending requests can be approved.");
 
-            var balance = await GetBalanceAsync(request.EmployeeId, request.LeaveTypeId, request.StartDate.Year);
+            var balance = await GetBalanceAsync(
+                request.EmployeeId, request.LeaveTypeId, request.StartDate.Year);
+
             balance.PendingDays -= request.TotalDays;
             balance.UsedDays += request.TotalDays;
 
@@ -172,7 +156,9 @@ namespace HR_Portal.Services
             if (request.Status != LeaveStatus.Pending)
                 throw new InvalidOperationException("Only pending requests can be rejected.");
 
-            var balance = await GetBalanceAsync(request.EmployeeId, request.LeaveTypeId, request.StartDate.Year);
+            var balance = await GetBalanceAsync(
+                request.EmployeeId, request.LeaveTypeId, request.StartDate.Year);
+
             balance.PendingDays -= request.TotalDays;
 
             request.Status = LeaveStatus.Rejected;
@@ -213,6 +199,20 @@ namespace HR_Portal.Services
                             r.Employee.IsManager)
                 .OrderBy(r => r.StartDate)
                 .ToListAsync();
+        }
+
+        public async Task<IEnumerable<LeaveRequest>> GetEmployeeLeaveHistoryAsync(
+            string employeeId, int? year = null, LeaveStatus? status = null)
+        {
+            var query = _db.LeaveRequests
+                .Include(r => r.LeaveType)
+                .Include(r => r.Approver)
+                .Where(r => r.EmployeeId == employeeId);
+
+            if (year.HasValue) query = query.Where(r => r.StartDate.Year == year.Value);
+            if (status.HasValue) query = query.Where(r => r.Status == status.Value);
+
+            return await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
         }
 
         public async Task UpsertLeaveBalanceAsync(LeaveBalanceEditViewModel vm)
@@ -278,6 +278,55 @@ namespace HR_Portal.Services
             await _db.SaveChangesAsync();
         }
 
+        // ── Admin helpers ─────────────────────────────────────────────────
+
+        public async Task<AdminDashboardViewModel> GetDashboardStatsAsync()
+        {
+            var today = DateTime.Today;
+            return new AdminDashboardViewModel
+            {
+                TotalUsers = await _db.Users.CountAsync(u => u.IsActive),
+                TotalPending = await _db.LeaveRequests.CountAsync(r => r.Status == LeaveStatus.Pending),
+                TotalApproved = await _db.LeaveRequests.CountAsync(r => r.Status == LeaveStatus.Approved),
+                TotalRejected = await _db.LeaveRequests.CountAsync(r => r.Status == LeaveStatus.Rejected),
+                EmployeesOnLeaveToday = await _db.LeaveRequests.CountAsync(r =>
+                    r.Status == LeaveStatus.Approved &&
+                    r.StartDate.Date <= today &&
+                    r.EndDate.Date >= today),
+                RecentRequests = await _db.LeaveRequests
+                    .Include(r => r.Employee)
+                    .Include(r => r.LeaveType)
+                    .OrderByDescending(r => r.CreatedAt)
+                    .Take(10)
+                    .ToListAsync(),
+                SelectedYear = today.Year
+            };
+        }
+
+        public async Task<int> GetActiveUserCountAsync()
+            => await _db.Users.CountAsync(u => u.IsActive);
+
+        public async Task<IEnumerable<string?>> GetDepartmentsAsync()
+            => await _db.Users
+                   .Where(u => u.Department != null)
+                   .Select(u => u.Department)
+                   .Distinct()
+                   .OrderBy(d => d)
+                   .ToListAsync();
+
+        public async Task<IEnumerable<LeaveType>> GetLeaveTypesAsync(bool activeOnly = true)
+            => await _db.LeaveTypes
+                   .Where(t => !activeOnly || t.IsActive)
+                   .OrderBy(t => t.Name)
+                   .ToListAsync();
+
+        public async Task<LeaveBalance?> GetLeaveBalanceAsync(
+            string employeeId, int leaveTypeId, int year)
+            => await _db.LeaveBalances.FirstOrDefaultAsync(b =>
+                   b.EmployeeId == employeeId &&
+                   b.LeaveTypeId == leaveTypeId &&
+                   b.Year == year);
+
         // ── Shared ────────────────────────────────────────────────────────
 
         public int CalculateWorkingDays(DateTime startDate, DateTime endDate)
@@ -292,29 +341,28 @@ namespace HR_Portal.Services
 
         public async Task<LeaveRequest?> GetRequestByIdAsync(int requestId)
             => await _db.LeaveRequests
-                    .Include(r => r.Employee)
-                    .Include(r => r.Approver)
-                    .Include(r => r.LeaveType)
-                    .FirstOrDefaultAsync(r => r.Id == requestId);
+                   .Include(r => r.Employee)
+                   .Include(r => r.Approver)
+                   .Include(r => r.LeaveType)
+                   .FirstOrDefaultAsync(r => r.Id == requestId);
 
         // ── Private helpers ───────────────────────────────────────────────
 
         private async Task<LeaveRequest> GetRequestOrThrowAsync(int requestId)
-            => await _db.LeaveRequests.Include(r => r.Employee)
-                    .FirstOrDefaultAsync(r => r.Id == requestId)
-                ?? throw new InvalidOperationException("Leave request not found.");
+            => await _db.LeaveRequests
+                   .Include(r => r.Employee)
+                   .Include(r => r.LeaveType)
+                   .FirstOrDefaultAsync(r => r.Id == requestId)
+               ?? throw new InvalidOperationException("Leave request not found.");
 
-        private async Task<LeaveBalance> GetBalanceAsync(string employeeId, int leaveTypeId, int year)
+        private async Task<LeaveBalance> GetBalanceAsync(
+            string employeeId, int leaveTypeId, int year)
             => await _db.LeaveBalances.FirstOrDefaultAsync(b =>
-                    b.EmployeeId == employeeId && b.LeaveTypeId == leaveTypeId && b.Year == year)
-                ?? throw new InvalidOperationException("Leave balance record not found.");
+                   b.EmployeeId == employeeId &&
+                   b.LeaveTypeId == leaveTypeId &&
+                   b.Year == year)
+               ?? throw new InvalidOperationException("Leave balance record not found.");
 
-        /// <summary>
-        /// A request can be reviewed by:
-        ///   - Its assigned ApproverId (the employee's manager), OR
-        ///   - Any Admin (when ApproverId is null — manager's own leave).
-        /// The caller is responsible for checking the Admin role before calling this.
-        /// </summary>
         private static void EnsureCanReview(LeaveRequest request, string reviewerId)
         {
             if (request.ApproverId is not null && request.ApproverId != reviewerId)
@@ -322,5 +370,4 @@ namespace HR_Portal.Services
                     "You are not the assigned approver for this leave request.");
         }
     }
-    
 }

@@ -145,7 +145,10 @@
                        asp-controller="AdminDashboard" asp-action="Balances">
                         <i class="bi bi-wallet2"></i> Balances
                     </a>
-
+                    <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "LeaveHistory" ? "active" : "")"
+                       asp-controller="AdminDashboard" asp-action="LeaveHistory">
+                        <i class="bi bi-clock-history"></i> Leave History
+                    </a>
                     <div class="nav-label">Users</div>
                     <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Users" ? "active" : "")"
                        asp-controller="Users" asp-action="Users">

@@ -1,4 +1,5 @@
 ﻿using HR_Portal.Constants;
+using HR_Portal.Models;
 using HR_Portal.Models.Domain;
 using HR_Portal.ViewModel.AccountViewModels;
 using HR_Portal.ViewModel.LoginViewModels;
@@ -12,16 +13,13 @@ namespace HR_Portal.Controllers
     {
         private readonly SignInManager<Users> _signInManager;
         private readonly UserManager<Users> _userManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
 
         public AccountController(
             SignInManager<Users> signInManager,
-            UserManager<Users> userManager,
-            RoleManager<IdentityRole> roleManager)
+            UserManager<Users> userManager)
         {
             _signInManager = signInManager;
             _userManager = userManager;
-            _roleManager = roleManager;
         }
 
         // ── Login ─────────────────────────────────────────────────────────
@@ -54,7 +52,6 @@ namespace HR_Portal.Controllers
 
             if (result.Succeeded)
             {
-                // Force password change on first login
                 if (user.MustChangePassword)
                     return RedirectToAction(nameof(ChangePassword), new { firstLogin = true });
 
@@ -78,7 +75,7 @@ namespace HR_Portal.Controllers
             return RedirectToAction(nameof(Login));
         }
 
-        // ── Change Password (user changes their own) ──────────────────────
+        // ── Change Password ───────────────────────────────────────────────
 
         [HttpGet]
         [Authorize]
@@ -111,7 +108,6 @@ namespace HR_Portal.Controllers
                 return View(vm);
             }
 
-            // Clear the flag after successful change
             if (user.MustChangePassword)
             {
                 user.MustChangePassword = false;
@@ -127,7 +123,7 @@ namespace HR_Portal.Controllers
             return RedirectToAction("Dashboard", "Leave");
         }
 
-        // ── Reset Password (Admin resets for a user) ──────────────────────
+        // ── Reset Password (Admin only) ───────────────────────────────────
 
         [HttpGet]
         [Authorize(Roles = Roles.Admin)]
@@ -136,13 +132,11 @@ namespace HR_Portal.Controllers
             var user = await _userManager.FindByIdAsync(userId);
             if (user is null) return NotFound();
 
-            var vm = new ResetPasswordViewModel
+            return View(new ResetPasswordViewModel
             {
                 UserId = user.Id,
                 FullName = user.FullName
-            };
-
-            return View(vm);
+            });
         }
 
         [HttpPost]
@@ -156,7 +150,6 @@ namespace HR_Portal.Controllers
             var user = await _userManager.FindByIdAsync(vm.UserId);
             if (user is null) return NotFound();
 
-            // Remove old password and set new one
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var result = await _userManager.ResetPasswordAsync(user, token, vm.NewPassword);
 
@@ -167,7 +160,6 @@ namespace HR_Portal.Controllers
                 return View(vm);
             }
 
-            // Force user to change password on next login
             user.MustChangePassword = true;
             await _userManager.UpdateAsync(user);
 

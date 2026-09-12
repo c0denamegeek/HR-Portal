@@ -1,14 +1,9 @@
-﻿using HR_Portal.Models.Domain;
+﻿using HR_Portal.Models;
+using HR_Portal.Models.Domain;
 using HR_Portal.Models.Enums;
 
 namespace HR_Portal.ViewModel.AdminViewModels
 {
-
-    // ════════════════════════════════════════════════════════════════
-    // ADMIN (HR) view models
-    // ════════════════════════════════════════════════════════════════
-
-    /// <summary>Admin dashboard summary.</summary>
     public class AdminDashboardViewModel
     {
         public int TotalPending { get; set; }
@@ -23,6 +18,4 @@ namespace HR_Portal.ViewModel.AdminViewModels
         public LeaveStatus? StatusFilter { get; set; }
         public int SelectedYear { get; set; } = DateTime.Today.Year;
     }
-
-
 }
